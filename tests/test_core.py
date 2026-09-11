@@ -182,3 +182,35 @@ def test_customer_financial_summary(test_database):
     assert customer["total_sale"] == 5000
     assert customer["total_paid"] == 2000
     assert customer["outstanding"] == 3000
+
+
+
+def test_get_customers_for_ui():
+    customer_id = create_customer(
+        name="UI Test Customer",
+        phone="0300-9999999"
+    )
+
+    record_sale(
+        customer_name="UI Test Customer",
+        sale_amount=5000,
+        paid_amount=2000
+    )
+
+    customers = get_customers_for_ui()
+
+    customer = next(
+        item for item in customers
+        if item["id"] == customer_id
+    )
+
+    assert customer["name"] == "UI Test Customer"
+    assert customer["phone"] == "0300-9999999"
+    assert customer["total_sale"] == 5000
+    assert customer["total_paid"] == 2000
+    assert customer["outstanding"] == 3000
+
+    searched = get_customers_for_ui(search="UI Test")
+
+    assert len(searched) == 1
+    assert searched[0]["id"] == customer_id
