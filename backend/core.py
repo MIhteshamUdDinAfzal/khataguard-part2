@@ -304,3 +304,57 @@ def get_dashboard_summary():
         "total_outstanding": get_total_outstanding(),
         "outstanding_customers": get_outstanding_customers(),
     }
+
+# ============================================================
+# Customer Summaries
+# ============================================================
+
+def get_customer_summaries():
+    """
+    Return customer-wise financial summaries.
+
+    Each customer will include:
+        - id
+        - name
+        - phone
+        - total_sale
+        - total_paid
+        - outstanding
+    """
+
+    customers = get_all_customers()
+
+    summaries = []
+
+    for customer in customers:
+
+        customer_id = customer["id"]
+
+        # Get all transactions for this customer
+        transactions = get_customer_transactions(customer_id)
+
+        total_sale = 0.0
+        total_paid = 0.0
+
+        for transaction in transactions:
+
+            if transaction["type"] == "sale":
+                total_sale += float(transaction["amount"])
+
+            elif transaction["type"] == "payment":
+                total_paid += float(transaction["amount"])
+
+        outstanding = total_sale - total_paid
+
+        summaries.append(
+            {
+                "id": customer_id,
+                "name": customer["name"],
+                "phone": customer["phone"],
+                "total_sale": total_sale,
+                "total_paid": total_paid,
+                "outstanding": outstanding,
+            }
+        )
+
+    return summaries
