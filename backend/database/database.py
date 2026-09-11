@@ -117,3 +117,7 @@ def initialize_database():
 if __name__ == "__main__":
     initialize_database()
     print("KhataGuard database initialized successfully.")
+
+
+# Initialize database automatically when the backend is imported.
+initialize_database()
