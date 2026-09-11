@@ -16,6 +16,7 @@ from backend.core import (
     get_customer_statement,
     get_dashboard_summary,
     get_customer_summaries,
+    get_customers_for_ui,
 )
 
 @pytest.fixture
