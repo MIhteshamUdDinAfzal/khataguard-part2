@@ -3,6 +3,10 @@ from pathlib import Path
 
 import pytest
 
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from backend.database import database
 from backend.database.customers import add_customer
 from backend.database.transactions import add_transaction
