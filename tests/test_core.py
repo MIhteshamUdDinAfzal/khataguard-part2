@@ -15,8 +15,8 @@ from backend.core import (
     record_payment,
     get_customer_statement,
     get_dashboard_summary,
+    get_customer_summaries,
 )
-
 
 @pytest.fixture
 def test_database():
@@ -147,3 +147,38 @@ def test_dashboard_summary(test_database):
     assert summary["total_sales"] == 8000
     assert summary["total_received"] == 3000
     assert summary["total_outstanding"] == 5000
+
+
+
+def test_customer_financial_summary(test_database):
+    """
+    Test customer-wise financial summary.
+
+    Sale = 5000
+    Paid = 2000
+    Outstanding = 3000
+    """
+
+    create_customer(
+        name="Ahmed",
+        phone="03001234567"
+    )
+
+    record_sale(
+        customer_name="Ahmed",
+        sale_amount=5000,
+        paid_amount=2000,
+        description="Grocery"
+    )
+
+    summaries = get_customer_summaries()
+
+    assert len(summaries) == 1
+
+    customer = summaries[0]
+
+    assert customer["name"] == "Ahmed"
+    assert customer["phone"] == "03001234567"
+    assert customer["total_sale"] == 5000
+    assert customer["total_paid"] == 2000
+    assert customer["outstanding"] == 3000
