@@ -358,3 +358,33 @@ def get_customer_summaries():
         )
 
     return summaries
+
+
+# ============================================================
+# Customer List for UI
+# ============================================================
+
+def get_customers_for_ui(search=None):
+    """
+    Return customer data in the format required by
+    the Part 1 Customers screen.
+
+    Optional search filters customers by name or phone.
+    """
+
+    summaries = get_customer_summaries()
+
+    if search:
+        search = search.strip().lower()
+
+        summaries = [
+            customer
+            for customer in summaries
+            if search in customer["name"].lower()
+            or (
+                customer["phone"]
+                and search in customer["phone"].lower()
+            )
+        ]
+
+    return summaries
