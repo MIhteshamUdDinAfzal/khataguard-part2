@@ -2,16 +2,11 @@ import json
 import os
 from openai import OpenAI
 
-
 DEFAULT_MODEL = "openai/gpt-oss-20b"
 
 
-def setting(key, default=""):
-    return os.getenv(key, default)
-
-
 def get_ai_client(api_key=None):
-    api_key = api_key or setting("GROQ_API_KEY")
+    api_key = api_key or os.getenv("GROQ_API_KEY")
 
     if not api_key:
         raise ValueError("GROQ_API_KEY is not configured.")
@@ -24,8 +19,11 @@ def get_ai_client(api_key=None):
     )
 
 
-def parse_transaction(text, api_key=None, model=DEFAULT_MODEL):
-
+def parse_transaction(
+    text,
+    api_key=None,
+    model=DEFAULT_MODEL
+):
     if not text or not text.strip():
         raise ValueError("Transaction text cannot be empty.")
 
@@ -65,6 +63,12 @@ Rules:
 - Ambiguous transactions require clarification.
 - Refunds, corrections and discounts require clarification.
 - Amounts are in Pakistani Rupees.
+
+Important:
+
+AI only understands the user's sentence.
+AI does NOT calculate the final customer balance.
+AI does NOT save anything to the database.
 
 Example:
 
