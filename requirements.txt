@@ -1,1 +1,5 @@
+streamlit>=1.40,<2
+pandas
+plotly
+openai>=1.55,<3
 pytest
