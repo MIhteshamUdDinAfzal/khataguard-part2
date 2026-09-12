@@ -20,12 +20,12 @@ from .database.customers import (
 
 from .database.transactions import (
     add_transaction,
+    add_sale_and_payment,
     get_transaction,
     get_customer_transactions,
     get_all_transactions,
     delete_transaction,
 )
-
 from .database.ledger import (
     get_customer_balance,
     get_customer_ledger,
