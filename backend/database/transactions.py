@@ -265,3 +265,151 @@ def delete_transaction(transaction_id):
 
     finally:
         connection.close()
+
+
+def add_sale_and_payment(
+    customer_id,
+    sale_amount,
+    paid_amount=0,
+    description=None,
+    transaction_date=None
+):
+    if sale_amount is None:
+        raise ValueError("Sale amount is required.")
+
+    try:
+        sale_amount = float(sale_amount)
+        paid_amount = float(paid_amount or 0)
+    except (TypeError, ValueError):
+        raise ValueError("Amounts must be valid numbers.")
+
+    if sale_amount <= 0:
+        raise ValueError("Sale amount must be greater than zero.")
+
+    if paid_amount < 0:
+        raise ValueError("Paid amount cannot be negative.")
+
+    if paid_amount > sale_amount:
+        raise ValueError(
+            "Paid amount cannot be greater than sale amount."
+        )
+
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT id
+            FROM customers
+            WHERE id = ?
+            """,
+            (customer_id,)
+        )
+
+        customer = cursor.fetchone()
+
+        if customer is None:
+            raise ValueError("Customer not found.")
+
+        if transaction_date:
+            cursor.execute(
+                """
+                INSERT INTO transactions
+                (
+                    customer_id,
+                    type,
+                    amount,
+                    description,
+                    transaction_date
+                )
+                VALUES (?, 'sale', ?, ?, ?)
+                """,
+                (
+                    customer_id,
+                    sale_amount,
+                    description,
+                    transaction_date
+                )
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO transactions
+                (
+                    customer_id,
+                    type,
+                    amount,
+                    description
+                )
+                VALUES (?, 'sale', ?, ?)
+                """,
+                (
+                    customer_id,
+                    sale_amount,
+                    description
+                )
+            )
+
+        sale_transaction_id = cursor.lastrowid
+
+        payment_transaction_id = None
+
+        if paid_amount > 0:
+            if transaction_date:
+                cursor.execute(
+                    """
+                    INSERT INTO transactions
+                    (
+                        customer_id,
+                        type,
+                        amount,
+                        description,
+                        transaction_date
+                    )
+                    VALUES (?, 'payment', ?, ?, ?)
+                    """,
+                    (
+                        customer_id,
+                        paid_amount,
+                        description,
+                        transaction_date
+                    )
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO transactions
+                    (
+                        customer_id,
+                        type,
+                        amount,
+                        description
+                    )
+                    VALUES (?, 'payment', ?, ?)
+                    """,
+                    (
+                        customer_id,
+                        paid_amount,
+                        description
+                    )
+                )
+
+            payment_transaction_id = cursor.lastrowid
+
+        connection.commit()
+
+        return {
+            "sale_transaction_id": sale_transaction_id,
+            "payment_transaction_id": payment_transaction_id,
+            "sale_amount": sale_amount,
+            "paid_amount": paid_amount,
+        }
+
+    except Exception:
+        connection.rollback()
+        raise
+
+    finally:
+        connection.close()
