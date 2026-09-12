@@ -111,7 +111,55 @@ def record_sale(
     description=None,
     transaction_date=None
 ):
-    """
+    customer = find_customer_by_name(customer_name)
+    customer_id = customer["id"]
+
+    if sale_amount is None:
+        raise ValueError("Sale amount is required.")
+
+    try:
+        sale_amount = float(sale_amount)
+    except (TypeError, ValueError):
+        raise ValueError("Sale amount must be a valid number.")
+
+    if sale_amount <= 0:
+        raise ValueError("Sale amount must be greater than zero.")
+
+    if paid_amount is None or paid_amount == "":
+        paid_amount = 0
+
+    try:
+        paid_amount = float(paid_amount)
+    except (TypeError, ValueError):
+        raise ValueError("Paid amount must be a valid number.")
+
+    if paid_amount < 0:
+        raise ValueError("Paid amount cannot be negative.")
+
+    if paid_amount > sale_amount:
+        raise ValueError(
+            "Paid amount cannot be greater than sale amount."
+        )
+
+    result = add_sale_and_payment(
+        customer_id=customer_id,
+        sale_amount=sale_amount,
+        paid_amount=paid_amount,
+        description=description,
+        transaction_date=transaction_date
+    )
+
+    balance = get_customer_balance(customer_id)
+
+    return {
+        "customer_id": customer_id,
+        "customer_name": customer["name"],
+        "sale_transaction_id": result["sale_transaction_id"],
+        "payment_transaction_id": result["payment_transaction_id"],
+        "sale_amount": sale_amount,
+        "paid_amount": paid_amount,
+        "outstanding": balance,
+    }    """
     Record a sale and optional payment for a customer.
 
     This function is designed specifically for the
