@@ -26,6 +26,7 @@ from .database.transactions import (
     get_all_transactions,
     delete_transaction,
 )
+
 from .database.ledger import (
     get_customer_balance,
     get_customer_ledger,
@@ -101,69 +102,18 @@ def find_customer_by_name(name):
 
 
 # ============================================================
-# Part 1 Transaction Function
+# Sale Function
 # ============================================================
 
 def record_sale(
-    customer_name,
+    customer_id,
     sale_amount,
     paid_amount=0,
     description=None,
     transaction_date=None
 ):
-    customer = find_customer_by_name(customer_name)
-    customer_id = customer["id"]
-
-    if sale_amount is None:
-        raise ValueError("Sale amount is required.")
-
-    try:
-        sale_amount = float(sale_amount)
-    except (TypeError, ValueError):
-        raise ValueError("Sale amount must be a valid number.")
-
-    if sale_amount <= 0:
-        raise ValueError("Sale amount must be greater than zero.")
-
-    if paid_amount is None or paid_amount == "":
-        paid_amount = 0
-
-    try:
-        paid_amount = float(paid_amount)
-    except (TypeError, ValueError):
-        raise ValueError("Paid amount must be a valid number.")
-
-    if paid_amount < 0:
-        raise ValueError("Paid amount cannot be negative.")
-
-    if paid_amount > sale_amount:
-        raise ValueError(
-            "Paid amount cannot be greater than sale amount."
-        )
-
-    result = add_sale_and_payment(
-        customer_id=customer_id,
-        sale_amount=sale_amount,
-        paid_amount=paid_amount,
-        description=description,
-        transaction_date=transaction_date
-    )
-
-    balance = get_customer_balance(customer_id)
-
-    return {
-        "customer_id": customer_id,
-        "customer_name": customer["name"],
-        "sale_transaction_id": result["sale_transaction_id"],
-        "payment_transaction_id": result["payment_transaction_id"],
-        "sale_amount": sale_amount,
-        "paid_amount": paid_amount,
-        "outstanding": balance,
-    }    """
+    """
     Record a sale and optional payment for a customer.
-
-    This function is designed specifically for the
-    Part 1 transaction screen.
 
     Example:
 
@@ -175,7 +125,7 @@ def record_sale(
         sale     = 5000
         payment  = 2000
 
-    Outstanding balance:
+    Outstanding:
 
         5000 - 2000 = 3000
     """
@@ -184,9 +134,10 @@ def record_sale(
     # Validate customer
     # --------------------------------------------------------
 
-    customer = find_customer_by_name(customer_name)
+    customer = get_customer(customer_id)
 
-    customer_id = customer["id"]
+    if customer is None:
+        raise ValueError("Customer not found.")
 
     # --------------------------------------------------------
     # Validate sale amount
@@ -228,44 +179,32 @@ def record_sale(
         )
 
     # --------------------------------------------------------
-    # Create SALE transaction
+    # Save sale + payment atomically
     # --------------------------------------------------------
 
-    sale_transaction_id = add_transaction(
+    result = add_sale_and_payment(
         customer_id=customer_id,
-        transaction_type="sale",
-        amount=sale_amount,
+        sale_amount=sale_amount,
+        paid_amount=paid_amount,
         description=description,
         transaction_date=transaction_date
     )
 
     # --------------------------------------------------------
-    # Create PAYMENT transaction if payment exists
-    # --------------------------------------------------------
-
-    payment_transaction_id = None
-
-    if paid_amount > 0:
-
-        payment_transaction_id = add_transaction(
-            customer_id=customer_id,
-            transaction_type="payment",
-            amount=paid_amount,
-            description=description,
-            transaction_date=transaction_date
-        )
-
-    # --------------------------------------------------------
-    # Return useful result for UI / AI
+    # Get updated balance
     # --------------------------------------------------------
 
     balance = get_customer_balance(customer_id)
 
+    # --------------------------------------------------------
+    # Return result
+    # --------------------------------------------------------
+
     return {
         "customer_id": customer_id,
         "customer_name": customer["name"],
-        "sale_transaction_id": sale_transaction_id,
-        "payment_transaction_id": payment_transaction_id,
+        "sale_transaction_id": result["sale_transaction_id"],
+        "payment_transaction_id": result["payment_transaction_id"],
         "sale_amount": sale_amount,
         "paid_amount": paid_amount,
         "outstanding": balance,
@@ -277,7 +216,7 @@ def record_sale(
 # ============================================================
 
 def record_payment(
-    customer_name,
+    customer_id,
     amount,
     description=None,
     transaction_date=None
@@ -285,13 +224,21 @@ def record_payment(
     """
     Record a payment from an existing customer.
 
-    Useful for cases where the customer pays
-    an already-existing outstanding balance.
+    Payment-only transactions use customer_id.
     """
 
-    customer = find_customer_by_name(customer_name)
+    # --------------------------------------------------------
+    # Validate customer
+    # --------------------------------------------------------
 
-    customer_id = customer["id"]
+    customer = get_customer(customer_id)
+
+    if customer is None:
+        raise ValueError("Customer not found.")
+
+    # --------------------------------------------------------
+    # Save payment
+    # --------------------------------------------------------
 
     transaction_id = add_transaction(
         customer_id=customer_id,
@@ -300,6 +247,10 @@ def record_payment(
         description=description,
         transaction_date=transaction_date
     )
+
+    # --------------------------------------------------------
+    # Get updated balance
+    # --------------------------------------------------------
 
     balance = get_customer_balance(customer_id)
 
@@ -316,21 +267,53 @@ def record_payment(
 # Customer Ledger
 # ============================================================
 
-def get_customer_statement(customer_name):
+def get_customer_statement(customer_id):
     """
     Return complete ledger information for a customer.
+
+    The customer is identified internally by customer_id.
     """
 
-    customer = find_customer_by_name(customer_name)
+    # --------------------------------------------------------
+    # Validate customer
+    # --------------------------------------------------------
 
-    customer_id = customer["id"]
+    customer = get_customer(customer_id)
+
+    if customer is None:
+        raise ValueError("Customer not found.")
+
+    # --------------------------------------------------------
+    # Get ledger
+    # --------------------------------------------------------
 
     ledger = get_customer_ledger(customer_id)
+
+    # --------------------------------------------------------
+    # Calculate totals
+    # --------------------------------------------------------
+
+    total_sale = 0.0
+    total_paid = 0.0
+
+    for transaction in ledger:
+
+        if transaction["type"] == "sale":
+            total_sale += float(transaction["amount"])
+
+        elif transaction["type"] == "payment":
+            total_paid += float(transaction["amount"])
+
+    # --------------------------------------------------------
+    # Return statement
+    # --------------------------------------------------------
 
     return {
         "customer_id": customer_id,
         "customer_name": customer["name"],
         "phone": customer["phone"],
+        "total_sale": total_sale,
+        "total_paid": total_paid,
         "balance": get_customer_balance(customer_id),
         "ledger": ledger,
     }
@@ -353,6 +336,7 @@ def get_dashboard_summary():
         "outstanding_customers": get_outstanding_customers(),
     }
 
+
 # ============================================================
 # Customer Summaries
 # ============================================================
@@ -361,7 +345,7 @@ def get_customer_summaries():
     """
     Return customer-wise financial summaries.
 
-    Each customer will include:
+    Each customer includes:
         - id
         - name
         - phone
@@ -378,7 +362,6 @@ def get_customer_summaries():
 
         customer_id = customer["id"]
 
-        # Get all transactions for this customer
         transactions = get_customer_transactions(customer_id)
 
         total_sale = 0.0
@@ -414,8 +397,8 @@ def get_customer_summaries():
 
 def get_customers_for_ui(search=None):
     """
-    Return customer data in the format required by
-    the Part 1 Customers screen.
+    Return customer data in the format required
+    by the Part 1 Customers screen.
 
     Optional search filters customers by name or phone.
     """
@@ -423,6 +406,7 @@ def get_customers_for_ui(search=None):
     summaries = get_customer_summaries()
 
     if search:
+
         search = search.strip().lower()
 
         summaries = [
