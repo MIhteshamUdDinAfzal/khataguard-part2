@@ -5,9 +5,13 @@ import sys
 import pytest
 
 # Project root ko Python path mein add karo
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(
+    0,
+    str(Path(__file__).resolve().parents[1])
+)
 
 from backend.database import database
+
 from backend.core import (
     create_customer,
     find_customer_by_name,
@@ -19,17 +23,24 @@ from backend.core import (
     get_customers_for_ui,
 )
 
+
+# ============================================================
+# Temporary Test Database
+# ============================================================
+
 @pytest.fixture
 def test_database():
+
     """
     Create a temporary database for core-layer testing.
     """
 
     temporary_directory = tempfile.TemporaryDirectory()
 
-    test_database_path = Path(
-        temporary_directory.name
-    ) / "test_khata.db"
+    test_database_path = (
+        Path(temporary_directory.name)
+        / "test_khata.db"
+    )
 
     original_database_path = database.DATABASE_PATH
 
@@ -44,10 +55,11 @@ def test_database():
     temporary_directory.cleanup()
 
 
+# ============================================================
+# Customer Creation
+# ============================================================
+
 def test_create_and_find_customer(test_database):
-    """
-    Test customer creation and name-based lookup.
-    """
 
     customer_id = create_customer(
         name="Ahmed",
@@ -62,83 +74,108 @@ def test_create_and_find_customer(test_database):
     assert customer["name"] == "Ahmed"
 
 
-def test_record_sale_with_payment(test_database):
-    """
-    Test the Part 1 transaction flow:
+# ============================================================
+# Sale + Payment
+# ============================================================
 
+def test_record_sale_with_payment(test_database):
+
+    """
     Sale = 5000
     Paid = 2000
     Outstanding = 3000
     """
 
-    create_customer("Ahmed")
+    customer_id = create_customer("Ahmed")
 
     result = record_sale(
-        customer_name="Ahmed",
+        customer_id=customer_id,
         sale_amount=5000,
         paid_amount=2000,
         description="Grocery"
     )
 
+    assert result["customer_id"] == customer_id
     assert result["customer_name"] == "Ahmed"
     assert result["sale_amount"] == 5000
     assert result["paid_amount"] == 2000
     assert result["outstanding"] == 3000
 
 
+# ============================================================
+# Separate Payment
+# ============================================================
+
 def test_record_payment(test_database):
+
     """
     Test recording a separate payment.
     """
 
-    create_customer("Ali")
+    customer_id = create_customer("Ali")
 
     record_sale(
-        customer_name="Ali",
+        customer_id=customer_id,
         sale_amount=5000,
         paid_amount=0
     )
 
     result = record_payment(
-        customer_name="Ali",
+        customer_id=customer_id,
         amount=2000,
         description="Cash payment"
     )
 
+    assert result["customer_id"] == customer_id
+    assert result["customer_name"] == "Ali"
     assert result["payment_amount"] == 2000
     assert result["outstanding"] == 3000
 
 
+# ============================================================
+# Customer Statement
+# ============================================================
+
 def test_customer_statement(test_database):
+
     """
     Test complete customer statement.
     """
 
-    create_customer("Usman")
+    customer_id = create_customer("Usman")
 
     record_sale(
-        customer_name="Usman",
+        customer_id=customer_id,
         sale_amount=10000,
         paid_amount=4000,
         description="Items"
     )
 
-    statement = get_customer_statement("Usman")
+    statement = get_customer_statement(
+        customer_id
+    )
 
+    assert statement["customer_id"] == customer_id
     assert statement["customer_name"] == "Usman"
     assert statement["balance"] == 6000
+
     assert len(statement["ledger"]) == 2
 
 
+# ============================================================
+# Dashboard Summary
+# ============================================================
+
 def test_dashboard_summary(test_database):
+
     """
     Test dashboard totals.
     """
 
-    create_customer("Bilal")
+    customer_id = create_customer("Bilal")
 
     record_sale(
-        customer_name="Bilal",
+        customer_id=customer_id,
         sale_amount=8000,
         paid_amount=3000
     )
@@ -150,23 +187,25 @@ def test_dashboard_summary(test_database):
     assert summary["total_outstanding"] == 5000
 
 
+# ============================================================
+# Customer Financial Summary
+# ============================================================
 
 def test_customer_financial_summary(test_database):
-    """
-    Test customer-wise financial summary.
 
+    """
     Sale = 5000
     Paid = 2000
     Outstanding = 3000
     """
 
-    create_customer(
+    customer_id = create_customer(
         name="Ahmed",
         phone="03001234567"
     )
 
     record_sale(
-        customer_name="Ahmed",
+        customer_id=customer_id,
         sale_amount=5000,
         paid_amount=2000,
         description="Grocery"
@@ -178,22 +217,28 @@ def test_customer_financial_summary(test_database):
 
     customer = summaries[0]
 
+    assert customer["id"] == customer_id
     assert customer["name"] == "Ahmed"
     assert customer["phone"] == "03001234567"
+
     assert customer["total_sale"] == 5000
     assert customer["total_paid"] == 2000
     assert customer["outstanding"] == 3000
 
 
+# ============================================================
+# Customers For UI
+# ============================================================
 
-def test_get_customers_for_ui():
+def test_get_customers_for_ui(test_database):
+
     customer_id = create_customer(
         name="UI Test Customer",
         phone="0300-9999999"
     )
 
     record_sale(
-        customer_name="UI Test Customer",
+        customer_id=customer_id,
         sale_amount=5000,
         paid_amount=2000
     )
@@ -201,17 +246,21 @@ def test_get_customers_for_ui():
     customers = get_customers_for_ui()
 
     customer = next(
-        item for item in customers
+        item
+        for item in customers
         if item["id"] == customer_id
     )
 
     assert customer["name"] == "UI Test Customer"
     assert customer["phone"] == "0300-9999999"
+
     assert customer["total_sale"] == 5000
     assert customer["total_paid"] == 2000
     assert customer["outstanding"] == 3000
 
-    searched = get_customers_for_ui(search="UI Test")
+    searched = get_customers_for_ui(
+        search="UI Test"
+    )
 
     assert len(searched) == 1
     assert searched[0]["id"] == customer_id
